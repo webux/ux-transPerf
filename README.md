@@ -1,4 +1,4 @@
-ux-transPerf
-============
+Angular uxTransformPerf
+=========
 
-Automatically use the most optimized transform for each device.
+Use the most optimized transforms for each device it runs on.
