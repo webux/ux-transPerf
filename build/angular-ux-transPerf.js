@@ -1,7 +1,8 @@
 /*
 * uxTransPerf v.0.1.0
 * (c) 2013, WebUX
-* License: MIT.
+* https://github.com/webux
+* License: MIT
 */
 (function(exports, global) {
     global["ux"] = exports;
@@ -309,17 +310,16 @@
         return api;
     }
     exports.transPerf = transPerf();
-    var module;
     try {
-        module = angular.module("ux");
+        angular.module("ux");
     } catch (e) {
-        module = angular.module("ux", []);
+        angular.module("ux", []);
     }
     ux.transPerf.events = {
-        ON_UPDATE: "transPerf:onUpdate",
-        ON_COMPLETE: "transPerf:onComplete"
+        UPDATED: "transPerf:update",
+        COMPLETED: "transPerf:complete"
     };
-    module.directive("uxTransPerf", [ "$rootScope", function($rootScope) {
+    angular.module("ux").directive("uxTransPerf", [ "$rootScope", function($rootScope) {
         return {
             restrict: "A",
             template: "<div></div><div>{{percent}}</div>",
@@ -327,10 +327,10 @@
             link: function(scope, element, attr) {
                 setTimeout(function() {
                     ux.transPerf.benchmark(element.children()[0], function(bench, percent) {
-                        $rootScope.$broadcast(ux.transPerf.events.ON_UPDATE, percent);
+                        $rootScope.$broadcast(ux.transPerf.events.UPDATED, percent);
                     }, function() {
                         ux.transPerf.best(element.children()[0].style, 100, 100);
-                        $rootScope.$broadcast(ux.transPerf.events.ON_COMPLETE);
+                        $rootScope.$broadcast(ux.transPerf.events.COMPLETED);
                         scope.$destroy();
                         element.remove();
                     }, attr.uxTransPerf || 1e4, true);

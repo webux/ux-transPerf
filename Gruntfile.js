@@ -2,9 +2,10 @@ module.exports = function (grunt) {
     grunt.initConfig({
         pkg: grunt.file.readJSON('package.json'),
         banner: '/*\n' +
-            '* <%= pkg.name %> v.<%= pkg.version %>\n' +
+            '* <%= pkg.name %> ver <%= pkg.version %>\n' +
             '* (c) ' + new Date().getFullYear() + ', WebUX\n' +
-            '* License: MIT.\n' +
+            '* https://github.com/webux\n' +
+            '* License: MIT\n' +
             '*/\n',
         jshint: {
             // define the files to lint
@@ -54,7 +55,8 @@ module.exports = function (grunt) {
                 files: {
                     'build/angular-<%= pkg.filename %>.js': [
                         'src/*.js',
-                        'src/frameworks/angular.js'
+                        'src/angular/ux.js',
+                        'src/angular/**/*.js'
                     ]
                 }
             },

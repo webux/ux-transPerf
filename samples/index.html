@@ -2,21 +2,19 @@
 <html data-ng-app="app">
 <head>
     <title>UX-TransformPerf</title>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
     <script type="text/javascript" data-main="js/main" src="../lib/angular.js"></script>
     <script src="../build/angular-ux-transPerf.js"></script>
     <script>
 
-        function Root($scope) {
-            $scope.$on(ux.transPerf.events.ON_UPDATE, function (event, percent) {
+        function Root($scope, $log) {
+            $scope.$on(ux.transPerf.events.UPDATED, function (event, percent) {
                 $scope.percent = "processing " + Math.round(percent * 100) + "%";
-                console.log($scope.percent);
+                $log.log(percent);
                 $scope.$digest();
             });
-            $scope.$on(ux.transPerf.events.ON_COMPLETE, function (event) {
-                console.log(ux.transPerf.getLog());
-                $scope.percent = "complete";
-                console.log(ux.transPerf.getResults());
+            $scope.$on(ux.transPerf.events.COMPLETED, function (event) {
+                $log.log(ux.transPerf.getLog());
+                $log.log(ux.transPerf.getResults());
                 ux.transPerf.best(document.getElementsByClassName('target')[0].style, 100, 100);
             });
         }

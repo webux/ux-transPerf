@@ -1,7 +1,8 @@
 /*
 * uxTransPerf v.0.1.0
 * (c) 2013, WebUX
-* License: MIT.
+* https://github.com/webux
+* License: MIT
 */
 (function(exports, global) {
     global["ux"] = exports;
