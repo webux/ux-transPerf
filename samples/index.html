@@ -7,6 +7,12 @@
     <script src="../build/angular-ux-transPerf.js"></script>
     <script>
 
+        ux.transPerf.log = function () {
+            if (window.console && console.log && console.log.apply) {
+                console.log.apply(console, arguments);
+            }
+        };
+
         function Root($scope) {
             $scope.$on(ux.transPerf.events.ON_UPDATE, function (event, percent) {
                 $scope.percent = "processing " + Math.round(percent * 100) + "%";
@@ -25,7 +31,7 @@
     </script>
 </head>
 <body data-ng-controller="Root">
-    <div data-ux-trans-perf="10000"></div>
+    <div data-ux-trans-perf="10000" data-expire="10000"></div>
     <div class="target" style="width:10px;height:10px;background: #FF0000;"></div>
     {{percent}}
 </body>

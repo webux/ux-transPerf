@@ -70,14 +70,6 @@
             style.top = y + "px";
         }
     }, {
-        id: "marginLT",
-        name: "margin left/top",
-        supported: false,
-        run: function(style, x, y) {
-            style.marginLeft = x + "px";
-            style.marginTop = y + "px";
-        }
-    }, {
         id: "trans3d",
         name: "translate3d",
         supported: false,
@@ -93,7 +85,7 @@
         }
     } ];
     function transPerf() {
-        var bench = [], api = {}, storageKey = "ux-transform-perf", index = 0, percent = 0, intv = 0, item, origOffset, elm, statusCallback, onComplete, iterations;
+        var bench = [], api = {}, timeLimit = 20, storageKey = "ux-transform-perf", index = 0, percent = 0, intv = 0, item, origOffset, elm, statusCallback, onComplete, iterations;
         function best(style, x, y, omit) {
             var index = 0;
             if (!bench.length) {
@@ -112,10 +104,10 @@
             }
             return tests[bench[index].index].run(style, x, y);
         }
-        function benchmark(element, statusUpdateCallback, onCompleteHandler, count, force) {
-            if (bench.length) {
-                statusCallback(bench, 1);
-                onComplete();
+        function benchmark(statusUpdateCallback, onCompleteHandler, count, force) {
+            if (!force && bench.length) {
+                statusUpdateCallback(bench, 1);
+                onCompleteHandler();
                 return;
             }
             elm = document.createElement("p");
@@ -140,7 +132,7 @@
             elm.style.left = "0px";
             elm.style.top = "0px";
             elm.style.marginLeft = "0px";
-            elm.style.martinTop = "0px";
+            elm.style.marginTop = "0px";
         }
         function checkSupport() {
             if (tests[index]) {
@@ -159,7 +151,7 @@
             }
             if (!test.supported) {
                 tests.splice(index, 1);
-                console.log("%s is not supported", test.id);
+                api.log("%s is not supported", test.id);
             } else {
                 index += 1;
             }
@@ -173,10 +165,9 @@
                     id: tests[index].id,
                     name: tests[index].name,
                     index: index,
-                    start: Date.now(),
-                    iterations: iterations
+                    iterations: 0
                 };
-                exec(elm, tests[index], item.iterations);
+                exec(item, elm, tests[index], timeLimit, item.iterations);
                 item.end = Date.now();
                 bench[index] = item;
                 index += 1;
@@ -189,24 +180,41 @@
                     compileResults(bench);
                     document.getElementsByTagName("body")[0].className += " " + bench[0].id;
                     onComplete();
-                    setStoredValue(bench);
+                    if (!getStoredValue()) {
+                        setStoredValue(bench);
+                    }
                     document.body.removeChild(elm);
                     elm = null;
                     statusCallback = null;
                     onComplete = null;
                 }
             } else {
-                console.log("%s NOT SUPPORTED", tests[index].id);
+                api.log("%s NOT SUPPORTED", tests[index].id);
             }
         }
-        function exec(elm, test, amount) {
-            var i = 0, x = 0, y = 0;
-            while (i < amount) {
-                x = y += 1;
-                test.run(elm.style, x, y);
-                i += 1;
+        function exec(item, elm, test, time, amount) {
+            var i = 0, x = 0, y = 0, then;
+            if (time) {
+                item.timeLimit = time;
+                then = Date.now() + time;
+                while (Date.now() < then) {
+                    x = y += 1;
+                    test.run(elm.style, x, y);
+                    i += 1;
+                }
+                item.iterations = i;
+            } else {
+                item.start = Date.now();
+                while (i < amount) {
+                    x = y += 1;
+                    test.run(elm.style, x, y);
+                    i += 1;
+                }
+                item.end = Date.now();
+                item.iterations = amount;
             }
             clear(elm);
+            return item;
         }
         function getResults() {
             var i = 0, len = bench.length, item, result = [], pattern, test;
@@ -233,9 +241,7 @@
             try {
                 return "localStorage" in window && window.localStorage !== null;
             } catch (e) {
-                if (window.console && console.log) {
-                    console.log(e.Description);
-                }
+                api.log(e.Description);
                 return false;
             }
         }
@@ -243,15 +249,25 @@
             if (!isLocalStorageSupported()) {
                 return undefined;
             }
-            var item = localStorage.getItem(storageKey);
-            return item && JSON.parse(item) || undefined;
+            var item = localStorage.getItem(storageKey), diff, result = item && JSON.parse(item) || undefined;
+            if (result) {
+                diff = api.expire - (Date.now() - result.expire);
+                if (diff > 0) {
+                    api.log("stored value found. %ss left till expire. Delete transPerf local storage to clear now.", Math.round(diff / 1e3));
+                    return result.value;
+                }
+            }
+            return undefined;
         }
         function setStoredValue(value) {
             if (!isLocalStorageSupported()) {
                 return undefined;
             }
             try {
-                localStorage.setItem(storageKey, JSON.stringify(value));
+                localStorage.setItem(storageKey, JSON.stringify({
+                    expire: Date.now(),
+                    value: value
+                }));
             } catch (e) {
                 return false;
             }
@@ -261,10 +277,17 @@
             var i = 0, len = bench.length, item;
             while (i < len) {
                 item = bench[i];
-                item.total = item.end - item.start;
+                if (item.timeLimit) {
+                    item.total = item.iterations;
+                } else {
+                    item.total = item.end - item.start;
+                }
                 i += 1;
             }
             sort(bench, function(a, b) {
+                if (a.timeLimit) {
+                    return b.total - a.total;
+                }
                 return a.total - b.total;
             });
             return bench;
@@ -273,7 +296,7 @@
             var str = "", i = 0, len = bench.length, item;
             while (i < len) {
                 item = bench[i];
-                str += item.name + ": time = " + item.total + "ms\n";
+                str += item.name + ": " + (item.timeLimit ? "count = " + item.total + " in " + item.timeLimit + "ms\n" : "time = " + item.total + "ms\n");
                 i += 1;
             }
             return str;
@@ -303,6 +326,7 @@
         api.best = best;
         api.benchmark = benchmark;
         api.getResults = getResults;
+        api.log = function() {};
         api.getLog = function() {
             return logResults(bench);
         };

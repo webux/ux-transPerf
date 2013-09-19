@@ -79,15 +79,15 @@ var transform = {
                 style.top = y + 'px';
             }
         },
-        {
-            id: "marginLT",
-            name: 'margin left/top',
-            supported: false,
-            run: function (style, x, y) {
-                style.marginLeft = x + 'px';
-                style.marginTop = y + 'px';
-            }
-        },
+//        {
+//            id: "marginLT",
+//            name: 'margin left/top',
+//            supported: false,
+//            run: function (style, x, y) {
+//                style.marginLeft = x + 'px';
+//                style.marginTop = y + 'px';
+//            }
+//        },
         {
             id: "trans3d",
             name: 'translate3d',
@@ -109,6 +109,7 @@ var transform = {
 function transPerf() {
     var bench = [],
         api = {},
+        timeLimit = 20,
         storageKey = 'ux-transform-perf',
         index = 0,
         percent = 0,
@@ -140,14 +141,12 @@ function transPerf() {
         return tests[bench[index].index].run(style, x, y);
     }
 
-//TODO: should this do how many ms for X iterations OR should it do how many iterations for X ms.
-//TODO: make sure that unsported tests fail.
 //TODO: add a class name on the body tag that will allow you to have all transitions in the css and use the best with css only.
-    function benchmark(element, statusUpdateCallback, onCompleteHandler, count, force) {
+    function benchmark(statusUpdateCallback, onCompleteHandler, count, force) {
 //TODO: need to automatically add element to body. document.body.insertBefore(el, null); https://gist.github.com/lorenzopolidori/3794226 remove it too.
-        if (bench.length) { // if we already have in memory.
-            statusCallback(bench, 1);
-            onComplete();
+        if (!force && bench.length) { // if we already have in memory.
+            statusUpdateCallback(bench, 1);
+            onCompleteHandler();
             return;
         }
         elm = document.createElement('p');
@@ -173,7 +172,7 @@ function transPerf() {
         elm.style.left = "0px";
         elm.style.top = "0px";
         elm.style.marginLeft = "0px";
-        elm.style.martinTop = "0px";
+        elm.style.marginTop = "0px";
     }
 
     function checkSupport() {
@@ -195,7 +194,7 @@ function transPerf() {
         }
         if (!test.supported) {
             tests.splice(index, 1);
-            console.log("%s is not supported", test.id);
+            api.log("%s is not supported", test.id);
         } else {
             index += 1;
         }
@@ -206,8 +205,13 @@ function transPerf() {
     function run() {
         var len = tests.length;
         if (tests[index].supported) {
-            item = {id: tests[index].id, name: tests[index].name, index: index, start: Date.now(), iterations: iterations};
-            exec(elm, tests[index], item.iterations);
+            item = {
+                id: tests[index].id,
+                name: tests[index].name,
+                index: index,
+                iterations: 0
+            };
+            exec(item, elm, tests[index], timeLimit, item.iterations);
             item.end = Date.now();
             bench[index] = item;
             index += 1;
@@ -221,25 +225,43 @@ function transPerf() {
                 //TODO: Make sure to tell about this in the readme file.
                 document.getElementsByTagName('body')[0].className += " " + bench[0].id;
                 onComplete();
-                setStoredValue(bench);
+                // don't update it unless it has expired.
+                if (!getStoredValue()) {
+                    setStoredValue(bench);
+                }
                 document.body.removeChild(elm);
                 elm = null;
                 statusCallback = null;
                 onComplete = null;
             }
         } else {
-            console.log("%s NOT SUPPORTED", tests[index].id);
+            api.log("%s NOT SUPPORTED", tests[index].id);
         }
     }
 
-    function exec(elm, test, amount) {
-        var i = 0, x = 0, y = 0;
-        while (i < amount) {
-            x = y += 1;
-            test.run(elm.style, x, y);
-            i += 1;
+    function exec(item, elm, test, time, amount) {
+        var i = 0, x = 0, y = 0, then;
+        if (time) {
+            item.timeLimit = time;
+            then = Date.now() + time;
+            while (Date.now() < then) {
+                x = y += 1;
+                test.run(elm.style, x, y);
+                i += 1;
+            }
+            item.iterations = i;
+        } else {
+            item.start = Date.now();
+            while (i < amount) {
+                x = y += 1;
+                test.run(elm.style, x, y);
+                i += 1;
+            }
+            item.end = Date.now();
+            item.iterations = amount;
         }
         clear(elm);
+        return item;
     }
 
     function getResults() {
@@ -261,11 +283,9 @@ function transPerf() {
 
     function isLocalStorageSupported() {
         try {
-            return ('localStorage' in window && window.localStorage !== null);
+            return (window.hasOwnProperty('localStorage') && window.localStorage !== null);
         } catch (e) {
-            if (window.console && console.log) {
-                console.log(e.Description);
-            }
+            api.log(e.Description);
             return false;
         }
     }
@@ -274,8 +294,16 @@ function transPerf() {
         if (!isLocalStorageSupported()) {
             return undefined;
         }
-        var item = localStorage.getItem(storageKey);
-        return item && JSON.parse(item) || undefined;
+        var item = localStorage.getItem(storageKey), diff,
+            result = (item && JSON.parse(item)) || undefined;
+        if (result) {
+            diff = api.expire - (Date.now() - result.expire);
+            if (diff > 0) {
+                api.log("stored value found. %ss left till expire. Delete transPerf local storage to clear now.", Math.round(diff / 1000));
+                return result.value;
+            }
+        }
+        return undefined;
     }
 
     function setStoredValue(value) {
@@ -283,7 +311,7 @@ function transPerf() {
             return undefined;
         }
         try {
-            localStorage.setItem(storageKey, JSON.stringify(value));
+            localStorage.setItem(storageKey, JSON.stringify({expire: Date.now(), value: value}));
         } catch (e) {
             return false;
         }
@@ -294,10 +322,17 @@ function transPerf() {
         var i = 0, len = bench.length, item;
         while (i < len) {
             item = bench[i];
-            item.total = item.end - item.start;
+            if (item.timeLimit) {
+                item.total = item.iterations;
+            } else {
+                item.total = item.end - item.start;
+            }
             i += 1;
         }
         sort(bench, function (a, b) {
+            if (a.timeLimit) {
+                return b.total - a.total;
+            }
             return a.total - b.total;
         });
         return bench;
@@ -307,7 +342,7 @@ function transPerf() {
         var str = "", i = 0, len = bench.length, item;
         while (i < len) {
             item = bench[i];
-            str += item.name + ": time = " + item.total + "ms\n";
+            str += item.name + ": " + (item.timeLimit ? "count = " + item.total + " in " + item.timeLimit + "ms\n" : "time = " + item.total + "ms\n");
             i += 1;
         }
         return str;
@@ -339,6 +374,7 @@ function transPerf() {
     api.best = best;
     api.benchmark = benchmark;
     api.getResults = getResults;
+    api.log = function () {};
     api.getLog = function () {
         return logResults(bench);
     };

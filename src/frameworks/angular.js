@@ -17,9 +17,9 @@ module.directive('uxTransPerf', ['$rootScope', function ($rootScope) {
         scope: {},
         link: function (scope, element, attr) {
             // wait for the first digest to have been completed to get offset.
+            ux.transPerf.expire = ux.transPerf.expire || parseInt(attr.expire || 0, 10) || 60 * 1000; // expire every minute.
             setTimeout(function () {
                 ux.transPerf.benchmark(
-                    element.children()[0],
                     function (bench, percent) {
                         $rootScope.$broadcast(ux.transPerf.events.ON_UPDATE, percent);
                     },
@@ -28,9 +28,9 @@ module.directive('uxTransPerf', ['$rootScope', function ($rootScope) {
                         $rootScope.$broadcast(ux.transPerf.events.ON_COMPLETE);
                         scope.$destroy();
                         element.remove();
+                        $rootScope.$apply();
                     },
-                    attr.uxTransPerf || 10000,
-                    true
+                    attr.uxTransPerf || 10000
                 );
             });
         }
