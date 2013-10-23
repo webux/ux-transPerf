@@ -1,16 +1,15 @@
+/*
+* (c) 2013, WebUX
+* https://github.com/webux
+* License: MIT
+*/
 /*global angular, ux */
-var module;
-try {
-    module = angular.module('ux');
-} catch (e) {
-    module = angular.module('ux', []);
-}
 // add some events for angular.
 ux.transPerf.events = {
-    ON_UPDATE: 'transPerf:onUpdate',
-    ON_COMPLETE: 'transPerf:onComplete'
+    UPDATED: 'transPerf:update',
+    COMPLETED: 'transPerf:complete'
 };
-module.directive('uxTransPerf', ['$rootScope', function ($rootScope) {
+angular.module('ux').directive('uxTransPerf', ['$rootScope', function ($rootScope) {
     return {
         restrict: 'A',
         template: '<div></div><div>{{percent}}</div>',
@@ -21,11 +20,11 @@ module.directive('uxTransPerf', ['$rootScope', function ($rootScope) {
             setTimeout(function () {
                 ux.transPerf.benchmark(
                     function (bench, percent) {
-                        $rootScope.$broadcast(ux.transPerf.events.ON_UPDATE, percent);
+                        $rootScope.$broadcast(ux.transPerf.events.UPDATED, percent);
                     },
                     function () {
                         ux.transPerf.best(element.children()[0].style, 100, 100);
-                        $rootScope.$broadcast(ux.transPerf.events.ON_COMPLETE);
+                        $rootScope.$broadcast(ux.transPerf.events.COMPLETED);
                         scope.$destroy();
                         element.remove();
                         $rootScope.$apply();
